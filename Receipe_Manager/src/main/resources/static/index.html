@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Recipe Manager</title>
+    <style>
+        body {
+          font-family: 'Segoe UI', sans-serif;
+          background: #f9f9f9;
+          padding: 20px;
+        }
+        .container {
+          max-width: 700px;
+          margin: auto;
+          background: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        .form-group {
+          margin-bottom: 12px;
+        }
+        label {
+          display: block;
+          margin-bottom: 4px;
+          font-weight: bold;
+        }
+        input, textarea {
+          padding: 8px;
+          font-size: 14px;
+          width: 100%;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+        }
+        input.small {
+          width: 48%;
+          display: inline-block;
+        }
+        button {
+          padding: 8px 14px;
+          margin: 5px;
+          font-size: 14px;
+          border: none;
+          border-radius: 5px;
+          color: white;
+          cursor: pointer;
+        }
+        .btn-add { background: #4CAF50; }
+        .btn-update { background: #2196F3; }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 6px;
+          text-align: left;
+        }
+        th {
+          background-color: #eee;
+        }
+        .message {
+          text-align: center;
+          color: green;
+          margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Recipe Manager</h2>
+
+    <!-- Add/Update Fields -->
+    <div class="form-group">
+        <label for="nameOfReceipe">Recipe Name:</label>
+        <input type="text" id="nameOfReceipe" class="small" placeholder="Enter name">
+    </div>
+
+    <div class="form-group">
+        <label for="ingredients">Ingredients (comma separated):</label>
+        <textarea id="ingredients" rows="3" placeholder="e.g. Onion, Tomato, Salt"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="steps">Steps (comma separated):</label>
+        <textarea id="steps" rows="3" placeholder="e.g. Chop veggies, Cook, Serve"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="cookingTime">Cooking Time:</label>
+        <input type="text" id="cookingTime" class="small" placeholder="e.g. 30 mins">
+    </div>
+
+    <div style="text-align:center">
+        <button class="btn-add" onclick="addRecipe()">Add</button>
+        <button class="btn-update" onclick="updateRecipe()">Update</button>
+    </div>
+
+
+
+    <!-- Search -->
+    <div class="form-group">
+        <label for="searchBox">Search Recipe:</label>
+        <input type="text" id="searchBox" placeholder="Enter recipe name to search">
+    </div>
+
+    <!-- Delete -->
+    <div class="form-group">
+        <label for="deleteBox">Delete Recipe:</label>
+        <input type="text" id="deleteBox" placeholder="Enter recipe name to delete">
+    </div>
+
+    <div class="message" id="msg"></div>
+
+    <table id="recipeTable"></table>
+</div>
+
+<script>
+    const baseUrl = "http://localhost:8080/receipes";
+
+    function getInput() {
+      return {
+        nameOfReceipe: document.getElementById("nameOfReceipe").value.trim(),
+        cookingTime: document.getElementById("cookingTime").value.trim(),
+        ingredients: document.getElementById("ingredients").value.trim().split(",").map(i => i.trim()),
+        steps: document.getElementById("steps").value.trim().split(",").map(s => s.trim())
+      };
+    }
+
+    function clearFields() {
+      document.getElementById("nameOfReceipe").value = "";
+      document.getElementById("cookingTime").value = "";
+      document.getElementById("ingredients").value = "";
+      document.getElementById("steps").value = "";
+    }
+
+    function showMessage(msg, isError = false) {
+      const el = document.getElementById("msg");
+      el.style.color = isError ? "red" : "green";
+      el.textContent = msg;
+      setTimeout(() => el.textContent = "", 3000);
+    }
+
+    function renderTable(recipe) {
+      const table = document.getElementById("recipeTable");
+      table.innerHTML = `
+        <tr><th>Name</th><th>Time</th><th>Ingredients</th><th>Steps</th></tr>
+        <tr>
+          <td>${recipe.nameOfReceipe}</td>
+          <td>${recipe.cookingTime}</td>
+          <td>${recipe.ingredients.join("<br>")}</td>
+          <td>${recipe.steps.join("<br>")}</td>
+        </tr>
+      `;
+    }
+
+    function addRecipe() {
+      const recipe = getInput();
+      fetch(`${baseUrl}/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recipe)
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Add failed");
+          showMessage("Recipe added!");
+          clearFields();
+        })
+        .catch(err => showMessage(err.message, true));
+    }
+
+    function updateRecipe() {
+      const recipe = getInput();
+      fetch(`${baseUrl}/update`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recipe)
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Update failed");
+          showMessage("Recipe updated!");
+          clearFields();
+        })
+        .catch(err => showMessage(err.message, true));
+    }
+
+    function searchRecipeByName(name) {
+      fetch(`${baseUrl}/search?nameOfReceipe=${encodeURIComponent(name)}`)
+        .then(res => {
+          if (!res.ok) throw new Error("Recipe not found");
+          return res.json();
+        })
+        .then(recipe => {
+          renderTable(recipe);
+          showMessage("Recipe found!");
+        })
+        .catch(err => showMessage(err.message, true));
+    }
+
+    function deleteRecipeByName(name) {
+      fetch(`${baseUrl}/delete?nameOfReceipe=${encodeURIComponent(name)}`, {
+        method: "DELETE"
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Delete failed");
+          showMessage("Recipe deleted!");
+          document.getElementById("recipeTable").innerHTML = "";
+        })
+        .catch(err => showMessage(err.message, true));
+    }
+
+    // Handle Enter key for search and delete input boxes
+    document.getElementById("searchBox").addEventListener("keypress", function (e) {
+      if (e.key === "Enter") {
+        const name = e.target.value.trim();
+        if (!name) return showMessage("Enter name to search", true);
+        searchRecipeByName(name);
+        this.value = "";
+      }
+    });
+
+    document.getElementById("deleteBox").addEventListener("keypress", function (e) {
+      if (e.key === "Enter") {
+        const name = e.target.value.trim();
+        if (!name) return showMessage("Enter name to delete", true);
+        deleteRecipeByName(name);
+        this.value = "";
+      }
+    });
+</script>
+</body>
+</html>
